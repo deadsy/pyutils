@@ -1,0 +1,65 @@
+#!/bin/env python3
+
+import datetime
+import argparse
+import sys
+import os
+import base64
+
+maxchunk = 64
+
+
+def pr_error(msg):
+    """log an error message - exit 1"""
+    ts = datetime.datetime.utcnow()
+    print("%s error: %s" % (ts, msg))
+    sys.exit(1)
+
+
+def check_file(path, opt):
+    if path is None:
+        pr_error("specify the %s option" % opt)
+    if not os.path.isfile(path):
+        pr_error('%s file "%s" does not exist' % (opt, path))
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="encode a binary file as a python program"
+    )
+    parser.add_argument("<file>", type=str, nargs=1, help="binary input filename")
+    parser.add_argument("--binary_out", metavar="<file>", help="binary output filename")
+    parser.add_argument("--python_out", metavar="<file>", help="python output filename")
+    args = vars(parser.parse_args())
+
+    binary_in = args["<file>"][0]
+    check_file(binary_in, "binary input")
+
+    python_out = args["python_out"]
+    if python_out is None:
+        python_out = binary_in + ".py"
+
+    binary_out = args["binary_out"]
+    if binary_out is None:
+        binary_out = binary_in
+
+    # read and encode the binary data
+    f = open(binary_in, mode="rb")
+    indata = f.read()
+    f.close()
+    outdata = base64.b64encode(indata)
+    chunks = "\\\n".join(
+        [str(outdata[i : i + maxchunk]) for i in range(0, len(outdata), maxchunk)]
+    )
+
+    f = open(python_out, mode="w")
+    f.write("#!/bin/env python3\n")
+    f.write("import base64\n")
+    f.write("data=%s\n" % chunks)
+    f.write('f=open("%s", mode="wb")\n' % binary_out)
+    f.write("f.write(base64.b64decode(data))\n")
+    f.write("f.close()\n")
+    f.close()
+
+
+main()
