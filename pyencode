@@ -1,12 +1,13 @@
-#!/bin/env python3
+#!/usr/bin/env python3
 
 import datetime
 import argparse
 import sys
 import os
 import base64
+import zlib
 
-maxchunk = 64
+maxchunk = 128
 
 
 def pr_error(msg):
@@ -47,17 +48,23 @@ def main():
     f = open(binary_in, mode="rb")
     indata = f.read()
     f.close()
+    csum = zlib.adler32(indata)
     outdata = base64.b64encode(indata)
     chunks = "\\\n".join(
         [str(outdata[i : i + maxchunk]) for i in range(0, len(outdata), maxchunk)]
     )
 
     f = open(python_out, mode="w")
-    f.write("#!/bin/env python3\n")
+    f.write("#!/usr/bin/env python3\n")
     f.write("import base64\n")
-    f.write("data=%s\n" % chunks)
+    f.write("import zlib\n")
+    f.write("import sys\n")
+    f.write("data0=%s\n" % chunks)
+    f.write("data1=base64.b64decode(data0)\n")
+    f.write("if zlib.adler32(data1) != 0x%08x:\n" % csum)
+    f.write('\tsys.exit("error: bad checksum")\n')
     f.write('f=open("%s", mode="wb")\n' % binary_out)
-    f.write("f.write(base64.b64decode(data))\n")
+    f.write("f.write(data1)\n")
     f.write("f.close()\n")
     f.close()
 
