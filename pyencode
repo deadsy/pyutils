@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+"""
+
+Encode a binary file as a python program.
+Running the python program will re-create the file.
+
+"""
+
 import datetime
 import argparse
 import sys
@@ -13,18 +20,20 @@ maxchunk = 128
 def pr_error(msg):
     """log an error message - exit 1"""
     ts = datetime.datetime.utcnow()
-    print("%s error: %s" % (ts, msg))
+    print(f"{ts} error: {msg}")
     sys.exit(1)
 
 
 def check_file(path, opt):
+    """check that a file exists"""
     if path is None:
-        pr_error("specify the %s option" % opt)
+        pr_error(f"specify the {opt} option")
     if not os.path.isfile(path):
-        pr_error('%s file "%s" does not exist' % (opt, path))
+        pr_error(f'{opt} file "{path}" does not exist')
 
 
 def main():
+    """pyencode entry point"""
     parser = argparse.ArgumentParser(description="encode a binary file as a python program")
     parser.add_argument("<file>", type=str, nargs=1, help="binary input filename")
     parser.add_argument("--binary_out", metavar="<file>", help="binary output filename")
@@ -43,26 +52,26 @@ def main():
         binary_out = binary_in
 
     # read and encode the binary data
-    f = open(binary_in, mode="rb")
-    indata = f.read()
-    f.close()
+    with open(binary_in, mode="rb") as f:
+        indata = f.read()
+        f.close()
     csum = zlib.adler32(indata)
     outdata = base64.b64encode(indata)
     chunks = "\\\n".join([str(outdata[i : i + maxchunk]) for i in range(0, len(outdata), maxchunk)])
 
-    f = open(python_out, mode="w")
-    f.write("#!/usr/bin/env python3\n")
-    f.write("import base64\n")
-    f.write("import zlib\n")
-    f.write("import sys\n")
-    f.write("data0=%s\n" % chunks)
-    f.write("data1=base64.b64decode(data0)\n")
-    f.write("if zlib.adler32(data1) != 0x%08x:\n" % csum)
-    f.write('\tsys.exit("error: bad checksum")\n')
-    f.write('f=open("%s", mode="wb")\n' % binary_out)
-    f.write("f.write(data1)\n")
-    f.write("f.close()\n")
-    f.close()
+    with open(python_out, mode="w", encoding="utf-8") as f:
+        f.write("#!/usr/bin/env python3\n")
+        f.write("import base64\n")
+        f.write("import zlib\n")
+        f.write("import sys\n")
+        f.write(f"data0={chunks}\n")
+        f.write("data1=base64.b64decode(data0)\n")
+        f.write(f"if zlib.adler32(data1) != 0x{csum:08x}:\n")
+        f.write('\tsys.exit("error: bad checksum")\n')
+        f.write(f'f=open("{binary_out}", mode="wb")\n')
+        f.write("f.write(data1)\n")
+        f.write("f.close()\n")
+        f.close()
 
 
 main()
