@@ -29,9 +29,7 @@ def is_hex(s):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='decode a "hexdump -x" file to a binary output file'
-    )
+    parser = argparse.ArgumentParser(description='decode a "hexdump -x" file to a binary output file')
     parser.add_argument("<file>", type=str, nargs=1, help="hex input filename")
     parser.add_argument("--binary_out", metavar="<file>", help="binary output filename")
     args = vars(parser.parse_args())

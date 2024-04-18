@@ -25,9 +25,7 @@ def check_file(path, opt):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="encode a binary file as a python program"
-    )
+    parser = argparse.ArgumentParser(description="encode a binary file as a python program")
     parser.add_argument("<file>", type=str, nargs=1, help="binary input filename")
     parser.add_argument("--binary_out", metavar="<file>", help="binary output filename")
     parser.add_argument("--python_out", metavar="<file>", help="python output filename")
@@ -50,9 +48,7 @@ def main():
     f.close()
     csum = zlib.adler32(indata)
     outdata = base64.b64encode(indata)
-    chunks = "\\\n".join(
-        [str(outdata[i : i + maxchunk]) for i in range(0, len(outdata), maxchunk)]
-    )
+    chunks = "\\\n".join([str(outdata[i : i + maxchunk]) for i in range(0, len(outdata), maxchunk)])
 
     f = open(python_out, mode="w")
     f.write("#!/usr/bin/env python3\n")
