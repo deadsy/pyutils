@@ -3,23 +3,38 @@
 """
 bin2pic
 
-Create a simple pictorial represenation of a file showing sections
+Create a simple pictorial representation of a file showing sections
 of 0's, 1's and mixed data. Used to examine memory dumps.
 
 """
 
 import sys
 import math
+import os
+import datetime
 
 SEEK_SET = 0
 SEEK_END = 2
 
-cols_max = 70.0
-factor = 1.0
+COLS_MAX = 70.0
+FACTOR = 1.0
+
+
+def pr_error(msg):
+    """log an error message - exit 1"""
+    ts = datetime.datetime.utcnow()
+    print(f"{ts} error: {msg}")
+    sys.exit(1)
+
+
+def check_file(path):
+    """check that a file exists"""
+    if not os.path.isfile(path):
+        pr_error(f'file "{path}" does not exist')
 
 
 def analyze(f, ofs, length):
-    """ "return a character representing the file contents from ofs to ofs + len - 1"""
+    """return a character representing the file contents from ofs to ofs + len - 1"""
     f.seek(ofs, SEEK_SET)
     buf = f.read(length)
     if len(buf) == 0:
@@ -37,52 +52,49 @@ def analyze(f, ofs, length):
     return c
 
 
-def process(name):
-    try:
-        f = open(name, "rb")
-    except IOError(errno, error):
-        if errno == 2:
-            print("%s: %s" % (name, error))
-            return
-        else:
-            raise e
+def gen_picture(path, f):
+    """generate the binary picture map"""
 
     # get the file size
     f.seek(0, SEEK_END)
     size = f.tell()
 
-    cols = cols_max + 1
+    cols = COLS_MAX + 1
     bps = 1
-    while cols > cols_max:
+    while cols > COLS_MAX:
         bps *= 2
-        cols = int(math.sqrt(float(size) / (factor * float(bps))))
+        cols = int(math.sqrt(float(size) / (FACTOR * float(bps))))
 
     rows = int(math.ceil(size / (float(cols) * float(bps))))
     bpr = cols * bps
 
-    print("'.' all ones, '-' all zeroes, '$' various")
-    print("%d (0x%x) bytes per symbol" % (bps, bps))
-    print("%d (0x%x) bytes per row" % (bpr, bpr))
-    print("%d cols x %d rows" % (cols, rows))
+    print(f"{path}: {size} bytes")
+    print(f"{bps} (0x{bps:x}) bytes per symbol")
+    print(f"{bpr} (0x{bpr:x}) bytes per row")
+    print(f"{cols} cols x {rows} rows")
 
     ofs = 0
     for y in range(rows):
         row_str = []
-        print("0x%08x: " % ofs, end="")
+        print(f"0x{ofs:08x}: ", end="")
         for x in range(cols):
             row_str.append(analyze(f, ofs, bps))
             ofs += bps
-        print("%s" % "".join(row_str))
+        print("".join(row_str))
 
-    f.close()
+    print("'.' all ones, '-' all zeroes, '$' various")
 
 
 def main(args):
+    """bin2pic entry point"""
     if len(args) == 1:
-        process(args[0])
+        path = args[0]
+        check_file(path)
+        with open(path, "rb") as f:
+            gen_picture(path, f)
+            f.close()
     else:
         print("usage: bin2pic [file]")
 
 
-if __name__ == "__main__":
-    main(sys.argv[1:])
+main(sys.argv[1:])

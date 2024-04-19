@@ -14,7 +14,7 @@ import os
 import base64
 import zlib
 
-maxchunk = 128
+MAXCHUNK = 128
 
 
 def pr_error(msg):
@@ -57,7 +57,7 @@ def main():
         f.close()
     csum = zlib.adler32(indata)
     outdata = base64.b64encode(indata)
-    chunks = "\\\n".join([str(outdata[i : i + maxchunk]) for i in range(0, len(outdata), maxchunk)])
+    chunks = "\\\n".join([str(outdata[i : i + MAXCHUNK]) for i in range(0, len(outdata), MAXCHUNK)])
 
     with open(python_out, mode="w", encoding="utf-8") as f:
         f.write("#!/usr/bin/env python3\n")
