@@ -12,12 +12,28 @@ import sys
 import math
 import os
 import datetime
+import argparse
 
 SEEK_SET = 0
 SEEK_END = 2
 
 COLS_MAX = 70.0
 FACTOR = 1.0
+
+KiB = 1 << 10
+MiB = 1 << 20
+GiB = 1 << 30
+
+
+def memsize(s):
+    """return a string for the memory size"""
+    if (s >= GiB) and (s & (GiB - 1) == 0):
+        return f"{int(s / GiB)} GiB"
+    if (s >= MiB) and (s & (MiB - 1) == 0):
+        return f"{int(s / MiB)} MiB"
+    if (s >= KiB) and (s & (KiB - 1) == 0):
+        return f"{int(s / KiB)} KiB"
+    return f"{s} B"
 
 
 def pr_error(msg):
@@ -27,10 +43,12 @@ def pr_error(msg):
     sys.exit(1)
 
 
-def check_file(path):
+def check_file(path, opt):
     """check that a file exists"""
+    if path is None:
+        pr_error(f"specify the {opt} option")
     if not os.path.isfile(path):
-        pr_error(f'file "{path}" does not exist')
+        pr_error(f'{opt} file "{path}" does not exist')
 
 
 def analyze(f, ofs, length):
@@ -52,7 +70,7 @@ def analyze(f, ofs, length):
     return c
 
 
-def gen_picture(path, f):
+def gen_picture(path, f, ofs):
     """generate the binary picture map"""
 
     # get the file size
@@ -68,12 +86,11 @@ def gen_picture(path, f):
     rows = int(math.ceil(size / (float(cols) * float(bps))))
     bpr = cols * bps
 
-    print(f"{path}: {size} bytes")
+    print(f"{path}: {memsize(size)}")
     print(f"{bps} (0x{bps:x}) bytes per symbol")
     print(f"{bpr} (0x{bpr:x}) bytes per row")
     print(f"{cols} cols x {rows} rows")
 
-    ofs = 0
     for y in range(rows):
         row_str = []
         print(f"0x{ofs:08x}: ", end="")
@@ -85,16 +102,28 @@ def gen_picture(path, f):
     print("'.' all ones, '-' all zeroes, '$' various")
 
 
-def main(args):
+def auto_int(x):
+    """convert the command line integer arguments"""
+    return int(x, 0)
+
+
+def main():
     """bin2pic entry point"""
-    if len(args) == 1:
-        path = args[0]
-        check_file(path)
-        with open(path, "rb") as f:
-            gen_picture(path, f)
-            f.close()
-    else:
-        print("usage: bin2pic [file]")
+    parser = argparse.ArgumentParser(description="output a pictorial map of a binary file")
+    parser.add_argument("<file>", type=str, nargs=1, help="binary input filename")
+    parser.add_argument("--ofs", metavar="<n>", type=auto_int, nargs=1, help="offset address")
+    args = vars(parser.parse_args())
+
+    binary_in = args["<file>"][0]
+    check_file(binary_in, "binary input")
+
+    ofs = 0
+    if args["ofs"] is not None:
+        ofs = args["ofs"][0]
+
+    with open(binary_in, "rb") as f:
+        gen_picture(binary_in, f, ofs)
+        f.close()
 
 
-main(sys.argv[1:])
+main()
