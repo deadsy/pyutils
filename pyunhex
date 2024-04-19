@@ -1,43 +1,106 @@
 #!/usr/bin/env python3
 
+"""
+
+pyunhex: convert a hexdump back into a binary file
+
+"""
+
 import datetime
 import argparse
 import sys
 import os
-import string
 
 
 def pr_error(msg):
     """log an error message - exit 1"""
     ts = datetime.datetime.utcnow()
-    print("%s error: %s" % (ts, msg))
+    print(f"{ts} error: {msg}")
     sys.exit(1)
 
 
 def check_file(path, opt):
+    """check that a file exists"""
     if path is None:
-        pr_error("specify the %s option" % opt)
+        pr_error(f"specify the {opt} option")
     if not os.path.isfile(path):
-        pr_error('%s file "%s" does not exist' % (opt, path))
+        pr_error(f'{opt} file "{path}" does not exist' % (opt, path))
 
 
 allowed = set("0123456789abcdefABCDEF ")
 
 
 def is_hex(s):
+    """return true if all of the characters in the string are hexadecimal"""
     return all(c in allowed for c in s)
 
 
+def decode1(indata):
+    """<adr> <16> (x8)"""
+    outdata = []
+    n = 1
+    for l in indata.splitlines():
+        if not is_hex(l):
+            return None, f"non hex character at line {n}"
+        data = l.split()
+        k = len(data)
+        if k in (0, 1):
+            # empty line or address only
+            pass
+        elif k > 9:
+            return None, f"too much data at line {n}"
+        else:
+            if len(data[0]) != 7:
+                return None, f"bad address length at line {n}"
+            # addr = int(data[0], 16)
+            for i in range(k - 1):
+                if len(data[i + 1]) != 4:
+                    return None, f"bad word length at line {n}"
+                word = int(data[1 + i], 16)
+                outdata.append(word & 0xFF)
+                outdata.append(word >> 8)
+        n += 1
+    return outdata
+
+
+def decode2(indata):
+    """<addr>: <8> (x16) <ascii>"""
+    outdata = []
+    n = 1
+    for l in indata.splitlines():
+        data = l.split(":", 1)
+        if len(data) < 1:
+            # empty line
+            pass
+        if not is_hex(data[0]):
+            return None, f"non hex character in address at line {n}"
+        # addr = int(data[0], 16)
+        data = data[1].split("   ", 1)
+        if len(data) < 1:
+            return None, f"no data at line {n}"
+        data = data[0].split()
+        if len(data) > 16:
+            return None, f"too much data at line {n}"
+        for byte_str in data:
+            if len(byte_str) != 2:
+                return None, f"bad byte length at line {n}"
+            byte = int(byte_str, 16)
+            outdata.append(byte)
+        n += 1
+    return outdata, None
+
+
 def main():
+    """pyunhex entry point"""
     parser = argparse.ArgumentParser(description='decode a "hexdump -x" file to a binary output file')
     parser.add_argument("<file>", type=str, nargs=1, help="hex input filename")
-    parser.add_argument("--binary_out", metavar="<file>", help="binary output filename")
+    parser.add_argument("--bo", metavar="<file>", help="binary output filename")
     args = vars(parser.parse_args())
 
     hex_in = args["<file>"][0]
     check_file(hex_in, "hex input")
 
-    binary_out = args["binary_out"]
+    binary_out = args["bo"]
     if binary_out is None:
         binary_out = hex_in + ".bin"
 
@@ -45,38 +108,17 @@ def main():
     print(binary_out)
 
     # read the hex data
-    f = open(hex_in, mode="r")
-    indata = f.read()
-    f.close()
+    with open(hex_in, mode="r", encoding="utf-8") as f:
+        indata = f.read()
+        f.close()
 
-    n = 1
-    outdata = []
+    outdata, err = decode2(indata)
+    if err is not None:
+        pr_error(err)
 
-    for l in indata.splitlines():
-        if not is_hex(l):
-            pr_error("non hex character at line %d" % n)
-        data = l.split()
-        k = len(data)
-        if k == 0 or k == 1:
-            # empty line or address only
-            pass
-        elif k > 9:
-            pr_error("too much data at line %d" % n)
-        else:
-            if len(data[0]) != 7:
-                pr_error("bad address length at line %d" % n)
-            addr = int(data[0], 16)
-            for i in range(k - 1):
-                if len(data[i + 1]) != 4:
-                    pr_error("bad word length at line %d" % n)
-                word = int(data[1 + i], 16)
-                outdata.append(word & 0xFF)
-                outdata.append(word >> 8)
-        n += 1
-
-    f = open(binary_out, mode="wb")
-    f.write(bytes(outdata))
-    f.close()
+    with open(binary_out, mode="wb") as f:
+        f.write(bytes(outdata))
+        f.close()
 
 
 main()
