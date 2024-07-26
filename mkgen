@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+
+"""
+mkgen
+
+"""
+
+
+def gen(prefix, url, cmake=False):
+    lcPrefix = prefix.lower()
+    ucPrefix = prefix.upper()
+
+    s = []
+    s.append(f"{ucPrefix}_VER = 0000000")
+    s.append(f"{ucPrefix}_URL = {url}/tarball/$({ucPrefix}_VER)")
+    s.append(f"{ucPrefix}_FILE = {lcPrefix}-$({ucPrefix}_VER).tar.gz")
+    s.append(f"{ucPrefix}_TGZ = $(DL_DIR)/$({ucPrefix}_FILE)")
+    s.append(f"{ucPrefix}_DIR = $(TOP)/ext/{lcPrefix}")
+    s.append(f"{ucPrefix}_BUILD = $({ucPrefix}_DIR)/{lcPrefix}_build")
+    s.append("")
+    s.append(f"$({ucPrefix}_TGZ):")
+    s.append("\tmkdir -p $(DL_DIR)")
+    s.append(f"\twget $({ucPrefix}_URL) -O $({ucPrefix}_TGZ)")
+    s.append("")
+    s.append(f".stamp_{lcPrefix}: $({ucPrefix}_TGZ)")
+    s.append(f"\tmkdir -p $({ucPrefix}_DIR)")
+    s.append(f"\ttar -C $({ucPrefix}_DIR) -zxf $({ucPrefix}_TGZ) --strip-components 1")
+    if cmake:
+        s.append("\tcmake -GNinja \\")
+        s.append(f"\t\t-S $({ucPrefix}_DIR) -B $({ucPrefix}_BUILD)")
+        s.append(f"\tninja -C $({ucPrefix}_BUILD) install")
+    s.append("\ttouch $@")
+    return "\n".join(s)
+
+
+def main():
+    """mkgen entry point"""
+    s = gen("gbm", "https://github.com/google/benchmark", True)
+    print(s)
+
+    s = gen("gt", "https://github.com/google/googletest", True)
+    print(s)
+
+    s = gen("fp16", "https://github.com/Maratyszcza/FP16", True)
+    print(s)
+
+    s = gen("mld", "https://github.com/jax-ml/ml_dtypes", True)
+    print(s)
+
+    s = gen("cpu", "https://github.com/pytorch/cpuinfo", True)
+    print(s)
+
+    s = gen("abs", "https://github.com/abseil/abseil-cpp", True)
+    print(s)
+
+    s = gen("xnn", "https://github.com/google/XNNPACK", True)
+    print(s)
+
+    s = gen("fb", "https://github.com/google/flatbuffers", True)
+    print(s)
+
+    s = gen("fh", "https://github.com/google/farmhash", False)
+    print(s)
+
+    s = gen("fft", "https://github.com/headupinclouds/fft2d", True)
+    print(s)
+
+
+main()
